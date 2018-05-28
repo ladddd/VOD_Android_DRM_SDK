@@ -34,7 +34,9 @@ public class PlayFragment extends Fragment {
 	private VideoListViewAdapter videoIdListViewAdapter;
 	
 	//TODO 待播放视频ID列表，可根据需求自定义
-	public static String[] playVideoIds = new String[] {};
+	public static String[] playVideoIds = new String[] {
+			"36AECE98B8FEA56B9C33DC5901307461",
+	};
 	private ListView playListView;
 	private Context context;
 	
@@ -73,9 +75,9 @@ public class PlayFragment extends Fragment {
 		@Override
 		public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
 			Pair<String, Integer> pair = (Pair<String, Integer>) parent.getItemAtPosition(position);
-			Intent intent = new Intent(context, MediaPlayActivity.class);
+//			Intent intent = new Intent(context, MediaPlayActivity.class);
 			//TODO 要使用SpeedIjkMediaPlayActivity，需要添加ijk的相关文件
-//			Intent intent = new Intent(context, SpeedIjkMediaPlayActivity.class);
+			Intent intent = new Intent(context, SpeedIjkMediaPlayActivity.class);
 			intent.putExtra("videoId", pair.first);
 			startActivity(intent);
 		}

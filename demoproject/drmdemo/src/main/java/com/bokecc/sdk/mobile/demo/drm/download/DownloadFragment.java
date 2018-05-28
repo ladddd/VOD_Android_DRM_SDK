@@ -63,7 +63,9 @@ public class DownloadFragment extends Fragment {
 	private DownloadListViewAdapter downloadListViewAdapter;
 
 	//TODO 待下载视频ID，可根据需求自定义
-	public String[] downloadVideoIds = new String[] {};
+	public String[] downloadVideoIds = new String[] {
+			"36AECE98B8FEA56B9C33DC5901307461",
+	};
 	private ListView downloadListView;
 	private Context context;
 	private FragmentActivity activity;

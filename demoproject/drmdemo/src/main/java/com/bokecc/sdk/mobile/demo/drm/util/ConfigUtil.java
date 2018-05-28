@@ -6,10 +6,10 @@ public class ConfigUtil {
 	public final static int DOWNLOADING_MAX = 2;
 
 	// 配置API KEY
-	public final static String API_KEY = "";
+	public final static String API_KEY = "BT2ow5oOVTee8wEDsazpGMMJxVEYJVBb";
 
 	// 配置帐户ID
-	public final static String USERID = "";
+	public final static String USERID = "479645DF56640DE7";
 
 	// 配置下载文件路径
 	public final static String DOWNLOAD_DIR = "CCDownload";
