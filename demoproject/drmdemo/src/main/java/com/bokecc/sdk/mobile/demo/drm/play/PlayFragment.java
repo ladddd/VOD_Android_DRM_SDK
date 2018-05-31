@@ -20,6 +20,7 @@ import android.widget.RelativeLayout.LayoutParams;
 
 import com.bokecc.sdk.mobile.demo.drm.R;
 import com.bokecc.sdk.mobile.demo.drm.adapter.VideoListViewAdapter;
+import com.bokecc.sdk.mobile.demo.drm.model.VideoInfo;
 
 /**
  * 播放列表标签页，用于展示待播放的视频ID
@@ -29,14 +30,25 @@ import com.bokecc.sdk.mobile.demo.drm.adapter.VideoListViewAdapter;
  */
 public class PlayFragment extends Fragment {
 	
-	private List<Pair<String, Integer>> pairs;
+	private List<VideoInfo> videoInfos;
 
 	private VideoListViewAdapter videoIdListViewAdapter;
 	
 	//TODO 待播放视频ID列表，可根据需求自定义
 	public static String[] playVideoIds = new String[] {
 			"36AECE98B8FEA56B9C33DC5901307461",
+			"B7CA8FABC220BEB19C33DC5901307461",
+			"4BD22ABE28E364759C33DC5901307461",
+			"8CAFC9E03FB1FC879C33DC5901307461",
 	};
+
+	public static String[] playVideoLabels = new String[] {
+			"76C58PICQ58PICBEagPx3mWtY(mp4)",
+			"2018熊出没之变形记TS720P国语中字(mp4)",
+			"01_考古学flv(flv)",
+			"1500(f4v)",
+	};
+
 	private ListView playListView;
 	private Context context;
 	
@@ -56,13 +68,16 @@ public class PlayFragment extends Fragment {
 		playLayout.addView(playListView, playListLayoutParams);
 
 		// 生成动态数组，加入数据
-		pairs = new ArrayList<Pair<String,Integer>>();
+		videoInfos = new ArrayList<>();
 		for (int i = 0; i < playVideoIds.length; i++) {
-			Pair<String, Integer> pair = new Pair<String, Integer>(playVideoIds[i], R.drawable.play);
-			pairs.add(pair);
+			VideoInfo videoInfo = new VideoInfo();
+			videoInfo.setVideoId(playVideoIds[i]);
+			videoInfo.setLabel(playVideoLabels[i]);
+			videoInfo.setResId(R.drawable.play);
+			videoInfos.add(videoInfo);
 		}
 
-		videoIdListViewAdapter = new VideoListViewAdapter(context, pairs);
+		videoIdListViewAdapter = new VideoListViewAdapter(context, videoInfos);
 		playListView.setAdapter(videoIdListViewAdapter);
 		playListView.setOnItemClickListener(onItemClickListener);
 
@@ -74,11 +89,10 @@ public class PlayFragment extends Fragment {
 		@SuppressWarnings("unchecked")
 		@Override
 		public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-			Pair<String, Integer> pair = (Pair<String, Integer>) parent.getItemAtPosition(position);
-//			Intent intent = new Intent(context, MediaPlayActivity.class);
-			//TODO 要使用SpeedIjkMediaPlayActivity，需要添加ijk的相关文件
-			Intent intent = new Intent(context, SpeedIjkMediaPlayActivity.class);
-			intent.putExtra("videoId", pair.first);
+			Intent intent = new Intent(context, MediaPlayActivity.class);
+//			Intent intent = new Intent(context, SpeedIjkMediaPlayActivity.class);
+			intent.putExtra("videoId", playVideoIds[position]);
+			intent.putExtra("label", playVideoLabels[position]);
 			startActivity(intent);
 		}
 	};

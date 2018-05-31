@@ -83,7 +83,8 @@ public class DownloadedFragment extends Fragment implements DownloadController.O
 		public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
 			DownloaderWrapper wrapper = (DownloaderWrapper) parent.getItemAtPosition(position);
 			Intent intent = new Intent(context, MediaPlayActivity.class);
-			intent.putExtra("videoId", wrapper.getDownloadInfo().getTitle());
+			intent.putExtra("videoId", wrapper.getDownloadInfo().getVideoId());
+			intent.putExtra("label", wrapper.getDownloadInfo().getTitle());
 			intent.putExtra("isLocalPlay", true);
 			startActivity(intent);
 		}

@@ -26,6 +26,7 @@ import android.widget.Toast;
 import com.bokecc.sdk.mobile.demo.drm.R;
 import com.bokecc.sdk.mobile.demo.drm.adapter.VideoListViewAdapter;
 import com.bokecc.sdk.mobile.demo.drm.downloadutil.DownloadController;
+import com.bokecc.sdk.mobile.demo.drm.model.VideoInfo;
 import com.bokecc.sdk.mobile.demo.drm.util.ConfigUtil;
 import com.bokecc.sdk.mobile.demo.drm.util.DataSet;
 import com.bokecc.sdk.mobile.demo.drm.view.VideoListView;
@@ -58,13 +59,22 @@ public class DownloadFragment extends Fragment {
 	
 	AlertDialog definitionDialog;
 
-	private List<Pair<String, Integer>> pairs;
+	private List<VideoInfo> videoInfos;
 	
 	private DownloadListViewAdapter downloadListViewAdapter;
 
 	//TODO 待下载视频ID，可根据需求自定义
 	public String[] downloadVideoIds = new String[] {
 			"36AECE98B8FEA56B9C33DC5901307461",
+			"B7CA8FABC220BEB19C33DC5901307461",
+			"4BD22ABE28E364759C33DC5901307461",
+			"8CAFC9E03FB1FC879C33DC5901307461",
+	};
+	public String[] downloadVideoLabels = new String[] {
+			"76C58PICQ58PICBEagPx3mWtY(mp4)",
+			"2018熊出没之变形记TS720P国语中字(mp4)",
+			"01_考古学flv(flv)",
+			"1500(f4v)",
 	};
 	private ListView downloadListView;
 	private Context context;
@@ -90,13 +100,16 @@ public class DownloadFragment extends Fragment {
 		downloadRelativeLayout.addView(downloadListView, listViewLayout);
 		
 		// 生成动态数组，加入数据
-		pairs = new ArrayList<Pair<String,Integer>>();
+		videoInfos = new ArrayList<>();
 		for (int i = 0; i < downloadVideoIds.length; i++) {
-			Pair<String, Integer> pair = new Pair<String, Integer>(downloadVideoIds[i], R.drawable.download);
-			pairs.add(pair);
+			VideoInfo videoInfo = new VideoInfo();
+			videoInfo.setVideoId(downloadVideoIds[i]);
+			videoInfo.setLabel(downloadVideoLabels[i]);
+			videoInfo.setResId(R.drawable.download);
+			videoInfos.add(videoInfo);
 		}
 
-		downloadListViewAdapter = new DownloadListViewAdapter(context, pairs);
+		downloadListViewAdapter = new DownloadListViewAdapter(context, videoInfos);
 		downloadListView.setAdapter(downloadListViewAdapter);
 		downloadListView.setOnItemClickListener(onItemClickListener);
 
@@ -110,8 +123,9 @@ public class DownloadFragment extends Fragment {
 		@Override
 		public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
 			//点击item时，downloader初始化使用的是设置清晰度方式
-			Pair<String, Integer> pair = (Pair<String, Integer>) parent.getItemAtPosition(position);
-			videoId = pair.first;
+//			Pair<String, Integer> pair = (Pair<String, Integer>) parent.getItemAtPosition(position);
+			videoId = downloadVideoIds[position];
+			title = downloadVideoLabels[position];
 			
 			downloader = new Downloader(videoId, ConfigUtil.USERID, ConfigUtil.API_KEY);
 			downloader.setOnProcessDefinitionListener(onProcessDefinitionListener);
@@ -145,7 +159,7 @@ public class DownloadFragment extends Fragment {
 						
 						int definition = definitionMapKeys[which];
 						
-						title = videoId + "-" + definition;
+						title = title + "-" + definition;
 						if (DataSet.hasDownloadInfo(title)) {
 							Toast.makeText(context, "文件已存在", Toast.LENGTH_SHORT).show();
 							return;
@@ -195,16 +209,16 @@ public class DownloadFragment extends Fragment {
 	
 	public class DownloadListViewAdapter extends VideoListViewAdapter {
 		
-		public DownloadListViewAdapter(Context context, List<Pair<String, Integer>> pairs){
+		public DownloadListViewAdapter(Context context, List<VideoInfo> pairs){
 			super(context, pairs);
 		}
 
 		@Override
 		public View getView(int position, View convertView, ViewGroup parent) {
 			
-			Pair<String, Integer> pair = pairs.get(position);
-			DownloadListView downloadListView = new DownloadListView(context, pair.first, pair.second);
-			downloadListView.setTag(pair.first);
+			VideoInfo videoInfo = videoInfos.get(position);
+			DownloadListView downloadListView = new DownloadListView(context, videoInfo.getVideoId(), videoInfo.getLabel(), videoInfo.getResId());
+			downloadListView.setTag(videoInfo.getVideoId());
 			return downloadListView;
 		}
 
@@ -213,8 +227,8 @@ public class DownloadFragment extends Fragment {
 	public class DownloadListView extends VideoListView {
 		private Context context;
 		
-		public DownloadListView(Context context, String text, int resId) {
-			super(context, text, resId);
+		public DownloadListView(Context context, String text, String label, int resId) {
+			super(context, text, label, resId);
 			this.context = context;
 			setImageListener();
 		}
@@ -225,14 +239,13 @@ public class DownloadFragment extends Fragment {
 				@Override
 				public void onClick(View v) {
 					title = videoView.getText().toString();
-					String videoId = title;
-					
+
 					if (DataSet.hasDownloadInfo(title)) {
 						Toast.makeText(context, "文件已存在", Toast.LENGTH_SHORT).show();
 						return;
 					}
 
-					DownloadController.insertDownloadInfo(videoId, videoId);
+					DownloadController.insertDownloadInfo(videoId, title);
 					Toast.makeText(context, "文件已加入下载队列", Toast.LENGTH_SHORT).show();
 				}
 			});

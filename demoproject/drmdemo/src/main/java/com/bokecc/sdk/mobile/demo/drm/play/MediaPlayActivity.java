@@ -1,22 +1,10 @@
 package com.bokecc.sdk.mobile.demo.drm.play;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.Map;
-import java.util.Timer;
-import java.util.TimerTask;
-
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
-import android.content.Intent;
-import android.content.ServiceConnection;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.hardware.Sensor;
@@ -24,14 +12,11 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.media.AudioManager;
-import android.media.MediaPlayer;
-import android.media.MediaPlayer.OnCompletionListener;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
-import android.os.IBinder;
 import android.os.Message;
 import android.util.Log;
 import android.view.GestureDetector;
@@ -62,11 +47,8 @@ import android.widget.Toast;
 import com.bokecc.sdk.mobile.demo.drm.DemoApplication;
 import com.bokecc.sdk.mobile.demo.drm.R;
 import com.bokecc.sdk.mobile.demo.drm.db.VideoPositionDBHelper;
-import com.bokecc.sdk.mobile.demo.drm.download.DownloadService;
 import com.bokecc.sdk.mobile.demo.drm.downloadutil.DownloadController;
-import com.bokecc.sdk.mobile.demo.drm.model.DownloadInfo;
 import com.bokecc.sdk.mobile.demo.drm.model.VideoPosition;
-import com.bokecc.sdk.mobile.demo.drm.play.Subtitle.OnSubtitleInitedListener;
 import com.bokecc.sdk.mobile.demo.drm.util.ConfigUtil;
 import com.bokecc.sdk.mobile.demo.drm.util.DataSet;
 import com.bokecc.sdk.mobile.demo.drm.util.MediaUtil;
@@ -76,25 +58,38 @@ import com.bokecc.sdk.mobile.demo.drm.view.PlayTopPopupWindow;
 import com.bokecc.sdk.mobile.demo.drm.view.PopMenu;
 import com.bokecc.sdk.mobile.demo.drm.view.PopMenu.OnItemClickListener;
 import com.bokecc.sdk.mobile.demo.drm.view.VerticalSeekBar;
-import com.bokecc.sdk.mobile.download.Downloader;
 import com.bokecc.sdk.mobile.exception.DreamwinException;
+import com.bokecc.sdk.mobile.play.DWIjkMediaPlayer;
 import com.bokecc.sdk.mobile.play.DWMediaPlayer;
 import com.bokecc.sdk.mobile.play.OnDreamWinErrorListener;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
+
+import tv.danmaku.ijk.media.player.IMediaPlayer;
+import tv.danmaku.ijk.media.player.IjkMediaPlayer;
+
 /**
  * 视频播放界面
+ * date 2019-05-28
+ * 将源码改造为dwIjkMediaPlayer内核
  * 
  * @author CC视频
  * 
  */
 public class MediaPlayActivity extends Activity implements
-		DWMediaPlayer.OnBufferingUpdateListener,
-		DWMediaPlayer.OnInfoListener,
-		DWMediaPlayer.OnPreparedListener, DWMediaPlayer.OnErrorListener,
-		MediaPlayer.OnVideoSizeChangedListener, SurfaceHolder.Callback, SensorEventListener, OnCompletionListener, OnDreamWinErrorListener {
+		DWIjkMediaPlayer.OnBufferingUpdateListener,
+		DWIjkMediaPlayer.OnInfoListener,
+		DWIjkMediaPlayer.OnPreparedListener, DWIjkMediaPlayer.OnErrorListener,
+		DWIjkMediaPlayer.OnVideoSizeChangedListener, SurfaceHolder.Callback, SensorEventListener, DWIjkMediaPlayer.OnCompletionListener, OnDreamWinErrorListener {
 	
 	private boolean networkConnected = true;
-	private DWMediaPlayer player;
+	private DWIjkMediaPlayer player;
 	private Subtitle subtitle;
 	private SurfaceView surfaceView;
 	private SurfaceHolder surfaceHolder;
@@ -114,6 +109,7 @@ public class MediaPlayActivity extends Activity implements
 
 	private boolean isLocalPlay;
 	private boolean isPrepared;
+	private boolean isBuffering = false;
 	private Map<String, Integer> definitionMap;
 
 	private Handler playerHandler;
@@ -124,7 +120,7 @@ public class MediaPlayActivity extends Activity implements
 	private int currrentSubtitleSwitchFlag = 0;
 	private int currentDefinitionIndex = 0;
 	// 默认设置为普清
-	private int defaultDefinition = DWMediaPlayer.NORMAL_DEFINITION;
+	private int defaultDefinition = DWMediaPlayer.HIGH_DEFINITION;
 	
 	private boolean firstInitDefinition = true;
 	private String path;
@@ -149,6 +145,7 @@ public class MediaPlayActivity extends Activity implements
 	private int currentPlayPosition;
 	private VideoPosition lastVideoPosition;
 	private String videoId;
+	private String label;
 	private RelativeLayout rlBelow, rlPlay;
 	private WindowManager wm;
 	private ImageView ivFullscreen;
@@ -227,6 +224,21 @@ public class MediaPlayActivity extends Activity implements
         		if (currentNetworkStatus != null && currentNetworkStatus == NetworkStatus.WIFI) {
         			return;
         		} else {
+        			if (currentNetworkStatus == NetworkStatus.NETLESS) {
+        				if (!isPrepared) {
+        					changeVideo(getCurrentVideoIndex(), false);
+						}
+						else {
+        					player.seekTo(currentPosition);
+        					player.start();
+        					runOnUiThread(new Runnable() {
+								@Override
+								public void run() {
+									bufferProgressBar.setVisibility(View.GONE);
+								}
+							});
+						}
+					}
         			currentNetworkStatus = NetworkStatus.WIFI;
         			showWifiToast();
         		}
@@ -235,11 +247,26 @@ public class MediaPlayActivity extends Activity implements
         		if (currentNetworkStatus != null && currentNetworkStatus == NetworkStatus.MOBILEWEB) {
         			return;
         		} else {
+					if (currentNetworkStatus == NetworkStatus.NETLESS) {
+						if (!isPrepared) {
+							changeVideo(getCurrentVideoIndex(), false);
+						}
+						else {
+							player.seekTo(currentPosition);
+							player.start();
+							runOnUiThread(new Runnable() {
+								@Override
+								public void run() {
+									bufferProgressBar.setVisibility(View.GONE);
+								}
+							});
+						}
+					}
         			currentNetworkStatus = NetworkStatus.MOBILEWEB;
         			showMobileDialog();
         		}
         	}
-        	
+
         	startPlayerTimerTask();
         	networkConnected = true;
         } else {
@@ -248,6 +275,28 @@ public class MediaPlayActivity extends Activity implements
     		} else {
     			currentNetworkStatus = NetworkStatus.NETLESS;
     			showNetlessToast();
+    			//断网后立即停止播放
+				if (isPrepared) {
+					runOnUiThread(new Runnable() {
+						@Override
+						public void run() {
+							if (player.isPlaying()) {
+								currentPosition = (int)player.getCurrentPosition();
+								updateDataPosition();
+
+								player.pause();
+//								player.stop();
+//								player.reset();
+//								isPrepared = false;
+//								player.pause();
+
+								setLayoutVisibility(View.GONE, false);
+								bufferProgressBar.setVisibility(View.VISIBLE);
+								ivCenterPlay.setVisibility(View.GONE);
+							}
+						}
+					});
+				}
     		}
         	
         	if (timerTask != null) {
@@ -336,7 +385,7 @@ public class MediaPlayActivity extends Activity implements
 			
 			@Override
 			public boolean onTouch(View v, MotionEvent event) {
-				if (!isPrepared) {
+				if (!isPrepared || NetworkStatus.NETLESS == currentNetworkStatus) {
 					return true;
 				}
 				
@@ -395,7 +444,7 @@ public class MediaPlayActivity extends Activity implements
 		volumeSeekBar.setProgress(currentVolume);
 		volumeSeekBar.setOnSeekBarChangeListener(seekBarChangeListener);
 
-		skbProgress = (SeekBar) findViewById(R.id.skbProgress);
+		skbProgress = findViewById(R.id.skbProgress);
 		skbProgress.setOnSeekBarChangeListener(onSeekBarChangeListener);
 
 		playerTopLayout = (LinearLayout) findViewById(R.id.playerTopLayout);
@@ -429,16 +478,16 @@ public class MediaPlayActivity extends Activity implements
 				}
 
 				// 刷新字幕
-				subtitleText.setText(subtitle.getSubtitleByTime(player
-						.getCurrentPosition()));
+//				subtitleText.setText(subtitle.getSubtitleByTime(player
+//						.getCurrentPosition()));
 
 				// 更新播放进度
-				currentPlayPosition = player.getCurrentPosition();
-				int duration = player.getDuration();
+				currentPlayPosition = (int)player.getCurrentPosition();
+				int duration = (int)player.getDuration();
 
 				if (duration > 0) {
 					long pos = skbProgress.getMax() * currentPlayPosition / duration;
-					playDuration.setText(ParamsUtil.millsecondsToStr(player.getCurrentPosition()));
+					playDuration.setText(ParamsUtil.millsecondsToStr((int)player.getCurrentPosition()));
 					skbProgress.setProgress((int) pos);
 				}
 			};
@@ -452,7 +501,7 @@ public class MediaPlayActivity extends Activity implements
 		
 		// 通过定时器和Handler来更新进度
 		isPrepared = false;
-		player = new DWMediaPlayer();
+		player = new DWIjkMediaPlayer();
 		player.reset();
 
 		player.setOnDreamWinErrorListener(this);
@@ -462,9 +511,12 @@ public class MediaPlayActivity extends Activity implements
 		player.setOnVideoSizeChangedListener(this);
 		player.setOnInfoListener(this);
 		player.setDRMServerPort(demoApplication.getDrmServerPort());
-		
+
+		player.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "enable-accurate-seek", 1);
+
 		videoId = getIntent().getStringExtra("videoId");
-		videoIdText.setText(videoId);
+		label = getIntent().getStringExtra("label");
+		videoIdText.setText(label);
 		isLocalPlay = getIntent().getBooleanExtra("isLocalPlay", false);
 		try {
 
@@ -476,9 +528,9 @@ public class MediaPlayActivity extends Activity implements
 			} else {// 播放本地已下载视频
 				
 				setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
-
+				player.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "max-buffer-size", 100 * 1024);
 				if (Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState())) {
-					path = Environment.getExternalStorageDirectory() + "/".concat(ConfigUtil.DOWNLOAD_DIR).concat("/").concat(videoId).concat(MediaUtil.PCM_FILE_SUFFIX);
+					path = Environment.getExternalStorageDirectory() + "/".concat(ConfigUtil.DOWNLOAD_DIR).concat("/").concat(label).concat(MediaUtil.PCM_FILE_SUFFIX);
 					if (!new File(path).exists()) {
 						return;
 					}
@@ -494,14 +546,14 @@ public class MediaPlayActivity extends Activity implements
 		}
 
 		// 设置视频字幕
-		subtitle = new Subtitle(new OnSubtitleInitedListener() {
-
-			@Override
-			public void onInited(Subtitle subtitle) {
-				// 初始化字幕控制菜单
-			}
-		});
-		subtitle.initSubtitleResource(subtitleExampleURL);
+//		subtitle = new Subtitle(new OnSubtitleInitedListener() {
+//
+//			@Override
+//			public void onInited(Subtitle subtitle) {
+//				// 初始化字幕控制菜单
+//			}
+//		});
+//		subtitle.initSubtitleResource(subtitleExampleURL);
 
 	}
 
@@ -590,7 +642,7 @@ public class MediaPlayActivity extends Activity implements
 			return;
 		}
 		if (isPrepared) {
-			currentPosition = player.getCurrentPosition();
+			currentPosition = (int)player.getCurrentPosition();
 		}
 
 		isPrepared = false;
@@ -622,7 +674,7 @@ public class MediaPlayActivity extends Activity implements
 	}
 
 	@Override
-	public void onPrepared(MediaPlayer mp) {
+	public void onPrepared(IMediaPlayer mp) {
 		
 		initTimerTask();
 		isPrepared = true;
@@ -654,7 +706,7 @@ public class MediaPlayActivity extends Activity implements
 
 		bufferProgressBar.setVisibility(View.GONE);
 		setSurfaceViewLayout();
-		videoDuration.setText(ParamsUtil.millsecondsToStr(player.getDuration()));
+		videoDuration.setText(ParamsUtil.millsecondsToStr((int)player.getDuration()));
 	}
 	
 	// 设置surfaceview的布局
@@ -695,7 +747,7 @@ public class MediaPlayActivity extends Activity implements
 					defaultDefinition = definitionMap.get(definitionArray[position]);
 
 					if (isPrepared) {
-						currentPosition = player.getCurrentPosition();
+						currentPosition = (int)player.getCurrentPosition();
 						if (player.isPlaying()) {
 							isPlaying = true;
 						} else {
@@ -725,7 +777,7 @@ public class MediaPlayActivity extends Activity implements
 	}
 
 	@Override
-	public void onBufferingUpdate(MediaPlayer mp, int percent) {
+	public void onBufferingUpdate(IMediaPlayer mp, int percent) {
 		skbProgress.setSecondaryProgress(percent);
 	}
 
@@ -867,10 +919,14 @@ public class MediaPlayActivity extends Activity implements
 		
 		currentPosition = 0;
 		currentPlayPosition = 0;
-		
-		timerTask.cancel();
+
+		if (timerTask != null) {
+			timerTask.cancel();
+		}
 		
 		videoId = PlayFragment.playVideoIds[position];
+		label = PlayFragment.playVideoLabels[position];
+		videoIdText.setText(label);
 		
 		if (playChangeVideoPopupWindow != null) {
 			playChangeVideoPopupWindow.setSelectedPosition(getCurrentVideoIndex()).refreshView();
@@ -896,21 +952,21 @@ public class MediaPlayActivity extends Activity implements
 	
 	private void initPlayTopPopupWindow() {
 		playTopPopupWindow = new PlayTopPopupWindow(this, surfaceView.getHeight());
-		playTopPopupWindow.setSubtitleCheckLister(new OnCheckedChangeListener() {
-			@Override
-			public void onCheckedChanged(RadioGroup group, int checkedId) {
-				switch (checkedId) {
-				case R.id.rb_subtitle_open:// 开启字幕
-					currentScreenSizeFlag = 0;
-					subtitleText.setVisibility(View.VISIBLE);
-					break;
-				case R.id.rb_subtitle_close:// 关闭字幕
-					currentScreenSizeFlag = 1;
-					subtitleText.setVisibility(View.GONE);
-					break;
-				}
-			}
-		});
+//		playTopPopupWindow.setSubtitleCheckLister(new OnCheckedChangeListener() {
+//			@Override
+//			public void onCheckedChanged(RadioGroup group, int checkedId) {
+//				switch (checkedId) {
+//				case R.id.rb_subtitle_open:// 开启字幕
+//					currentScreenSizeFlag = 0;
+//					subtitleText.setVisibility(View.VISIBLE);
+//					break;
+//				case R.id.rb_subtitle_close:// 关闭字幕
+//					currentScreenSizeFlag = 1;
+//					subtitleText.setVisibility(View.GONE);
+//					break;
+//				}
+//			}
+//		});
 		
 		playTopPopupWindow.setScreenSizeCheckLister(new OnCheckedChangeListener() {
 			@Override
@@ -947,7 +1003,7 @@ public class MediaPlayActivity extends Activity implements
 			return;
 		}
 
-		DownloadController.insertDownloadInfo(videoId, videoId);
+		DownloadController.insertDownloadInfo(videoId, label);
 		Toast.makeText(this, "文件已加入下载队列", Toast.LENGTH_SHORT).show();
 	}
 	
@@ -961,6 +1017,10 @@ public class MediaPlayActivity extends Activity implements
 		@Override
 		public void onStopTrackingTouch(SeekBar seekBar) {
 			if (networkConnected || isLocalPlay) {
+				Log.d("BuffProblem", "onStopTrackingTouch, isBuffering = " + (isBuffering?"true":"false"));
+				if (isBuffering) {
+					return;
+				}
 				player.seekTo(progress);
 				playerHandler.postDelayed(hidePlayRunnable, 5000);
 			}
@@ -974,7 +1034,7 @@ public class MediaPlayActivity extends Activity implements
 		@Override
 		public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
 			if (networkConnected || isLocalPlay) {
-				this.progress = progress * player.getDuration() / seekBar.getMax();
+				this.progress = progress * (int)player.getDuration() / seekBar.getMax();
 			}
 		}
 	};
@@ -1097,9 +1157,9 @@ public class MediaPlayActivity extends Activity implements
 	};
 
 	@Override
-	public boolean onError(MediaPlayer mp, final int what, int extra) {
+	public boolean onError(IMediaPlayer mp, final int what, int extra) {
 		
-		if (DWMediaPlayer.MEDIA_ERROR_DRM_LOCAL_SERVER == what) {
+		if (DWIjkMediaPlayer.MEDIA_ERROR_DRM_LOCAL_SERVER == what) {
 			runOnUiThread(new Runnable() {
 				
 				@Override
@@ -1119,7 +1179,7 @@ public class MediaPlayActivity extends Activity implements
 	}
 
 	@Override
-	public void onVideoSizeChanged(MediaPlayer mp, int width, int height) {
+	public void onVideoSizeChanged(IMediaPlayer mp, int width, int height, int i, int j) {
 		setSurfaceViewLayout();
 	}
 
@@ -1270,6 +1330,10 @@ public class MediaPlayActivity extends Activity implements
 			ivPlay.setImageResource(R.drawable.smallbegin_ic);
 
 		} else {
+			if (NetworkStatus.NETLESS == currentNetworkStatus) {
+				showNetlessToast();
+				return;
+			}
 			player.start();
 			ivCenterPlay.setVisibility(View.GONE);
 			ivPlay.setImageResource(R.drawable.smallstop_ic);
@@ -1277,15 +1341,19 @@ public class MediaPlayActivity extends Activity implements
 	}
 
 	@Override
-	public boolean onInfo(MediaPlayer mp, int what, int extra) {
+	public boolean onInfo(IMediaPlayer mp, int what, int extra) {
 		switch(what) {
-		case DWMediaPlayer.MEDIA_INFO_BUFFERING_START:
+		case DWIjkMediaPlayer.MEDIA_INFO_BUFFERING_START:
 			if (player.isPlaying()) {
 				bufferProgressBar.setVisibility(View.VISIBLE);
 			}
+			isBuffering = true;
+			Log.d("BuffProblem", "buffering start");
 			break;
-		case DWMediaPlayer.MEDIA_INFO_BUFFERING_END:
+		case DWIjkMediaPlayer.MEDIA_INFO_BUFFERING_END:
 			bufferProgressBar.setVisibility(View.GONE);
+			isBuffering = false;
+			Log.d("BuffProblem", "buffering end");
 			break;
 		}
 		return false;
@@ -1496,7 +1564,7 @@ public class MediaPlayActivity extends Activity implements
 	}
 
 	@Override
-	public void onCompletion(MediaPlayer mp) {
+	public void onCompletion(IMediaPlayer mp) {
 		
 		if (isLocalPlay) {
 			toastInfo("播放完成！");

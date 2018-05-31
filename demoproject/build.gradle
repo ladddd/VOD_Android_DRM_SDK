@@ -21,6 +21,13 @@ allprojects {
         jcenter()
         google()
         maven { url "http://objectbox.net/beta-repo/" }
+        maven {
+            credentials {
+                username 'admin'
+                password 'password'
+            }
+            url "http://172.16.211.205:8081/artifactory/gradle-dev-local/"
+        }
     }
 }
 

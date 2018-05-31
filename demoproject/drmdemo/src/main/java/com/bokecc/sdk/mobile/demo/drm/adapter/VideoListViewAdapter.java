@@ -8,6 +8,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 
+import com.bokecc.sdk.mobile.demo.drm.model.VideoInfo;
 import com.bokecc.sdk.mobile.demo.drm.view.VideoListView;
 
 /**
@@ -19,23 +20,23 @@ import com.bokecc.sdk.mobile.demo.drm.view.VideoListView;
  */
 public class VideoListViewAdapter extends BaseAdapter{
 	
-	protected List<Pair<String, Integer>> pairs;
+	protected List<VideoInfo> videoInfos;
 	
 	protected Context context;
 	
-	public VideoListViewAdapter(Context context, List<Pair<String, Integer>> pairs){
-		this.pairs = pairs;
+	public VideoListViewAdapter(Context context, List<VideoInfo> videoInfos){
+		this.videoInfos = videoInfos;
 		this.context = context;
 	}
 
 	@Override
 	public int getCount() {
-		return pairs.size();
+		return videoInfos.size();
 	}
 
 	@Override
 	public Object getItem(int position) {
-		return pairs.get(position);
+		return videoInfos.get(position);
 	}
 
 	@Override
@@ -46,9 +47,9 @@ public class VideoListViewAdapter extends BaseAdapter{
 	@Override
 	public View getView(int position, View convertView, ViewGroup parent) {
 		
-		Pair<String, Integer> pair = pairs.get(position);
-		VideoListView videoListView = new VideoListView(context, pair.first, pair.second);
-		videoListView.setTag(pair.first);
+		VideoInfo videoInfo = videoInfos.get(position);
+		VideoListView videoListView = new VideoListView(context, videoInfo.getVideoId(), videoInfo.getLabel(), videoInfo.getResId());
+		videoListView.setTag(videoInfo.getVideoId());
 		
 		return videoListView;
 		

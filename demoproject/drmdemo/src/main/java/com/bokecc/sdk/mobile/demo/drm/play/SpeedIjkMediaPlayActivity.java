@@ -253,7 +253,7 @@ public class SpeedIjkMediaPlayActivity extends Activity implements
 			} else {// 播放本地已下载视频
 				
 				if (Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState())) {
-				
+
 					path = Environment.getExternalStorageDirectory() + "/".
 							concat(ConfigUtil.DOWNLOAD_DIR).concat("/").concat(videoId).concat(MediaUtil.PCM_FILE_SUFFIX);
 					

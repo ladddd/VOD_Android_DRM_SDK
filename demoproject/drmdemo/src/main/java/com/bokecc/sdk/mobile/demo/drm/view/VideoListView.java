@@ -9,6 +9,8 @@ import android.widget.TextView;
 import com.bokecc.sdk.mobile.demo.drm.util.ParamsUtil;
 
 public class VideoListView extends RelativeLayout{
+
+	protected String videoId;
 	
 	protected TextView videoView;
 	
@@ -16,11 +18,12 @@ public class VideoListView extends RelativeLayout{
 	
 	private final int VIDEOIDVIEW_ID = 5000001;
 
-	public VideoListView(Context context, String text, int resId) {
+	public VideoListView(Context context, String text, String label, int resId) {
 		super(context);
-	
+
+		videoId = text;
 		videoView = new TextView(context);
-		videoView.setText(text);
+		videoView.setText(label);
 		videoView.setId(VIDEOIDVIEW_ID);
 		videoView.setTextSize(16);
 		videoView.setTextColor(Color.BLACK);
